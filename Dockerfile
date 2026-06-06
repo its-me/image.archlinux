@@ -5,7 +5,7 @@ RUN pacman -Syu --noconfirm && \
 
 RUN useradd -m builder && \
     echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers && \
-    echo 'OPTIONS=(!debug)' >> /etc/makepkg.conf && \
+    sed -i '/^OPTIONS/s/ debug/ !debug/' /etc/makepkg.conf && \
     su - builder -c 'git clone https://aur.archlinux.org/paru.git && cd paru && makepkg --syncdeps --noconfirm'
 
 
