@@ -1,0 +1,49 @@
+name: Build image
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "0 10 * * *"
+  workflow_dispatch:
+
+permissions:
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build image
+        id: build
+        run: |
+          DOCKER_BUILDKIT=1 docker build -t arch-linux .
+          hash=$(docker run --rm arch-linux pacman -Q | sha256sum | cut -d' ' -f1)
+          echo "image=ghcr.io/${{ github.repository }}:$hash" >> $GITHUB_OUTPUT
+
+      - name: Check image cache
+        id: cache
+        run: |
+          if docker manifest inspect ${{ steps.build.outputs.image }} > /dev/null 2>&1; then
+            echo "cache-hit=true" >> $GITHUB_OUTPUT
+          else
+            echo "cache-hit=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Log in to GHCR
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: echo "${{ github.token }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Push image to GHCR
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          date_tag=$(date -u +%y%m%d)
+          docker tag arch-linux ${{ steps.build.outputs.image }}
+          docker tag arch-linux ghcr.io/${{ github.repository }}:$date_tag
+          docker tag arch-linux ghcr.io/${{ github.repository }}:latest
+          docker push ${{ steps.build.outputs.image }}
+          docker push ghcr.io/${{ github.repository }}:$date_tag
+          docker push ghcr.io/${{ github.repository }}:latest
