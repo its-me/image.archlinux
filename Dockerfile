@@ -12,6 +12,7 @@ RUN useradd -m builder && \
 FROM archlinux/archlinux:latest
 
 RUN pacman -Syu --noconfirm && \
+    pacman -S --noconfirm sudo && \
     pacman -Scc --noconfirm
 
 RUN --mount=type=bind,from=builder,source=/home/builder/paru,target=/tmp/paru \
