@@ -17,4 +17,4 @@ RUN pacman -Syu --noconfirm && \
 
 RUN --mount=type=bind,from=builder,source=/home/builder/paru,target=/tmp/paru \
     pacman -U /tmp/paru/*.pkg.tar.zst --noconfirm && \
-    paru -Scc --noconfirm
+    yes | paru -Scc
