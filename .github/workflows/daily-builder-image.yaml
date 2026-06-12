@@ -1,10 +1,8 @@
-name: Build base image
+name: Daily builder image
 
 on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
+  schedule:
+    - cron: "45 9 * * *"
 
 jobs:
   build:
@@ -33,27 +31,33 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
+          file: Dockerfile.builder
           load: true
-          tags: arch-linux
+          tags: arch-linux-builder
 
       - name: Check if image exists in GHCR
         id: exist
         run: |
-          hash=$(docker run --rm arch-linux pacman -Q | sha256sum | cut -d' ' -f1)
+          hash=$(docker run --rm arch-linux-builder pacman -Q | sha256sum | cut -d' ' -f1)
           echo "hash=$hash" >> $GITHUB_OUTPUT
-          if docker manifest inspect ghcr.io/${{ github.repository }}:$hash > /dev/null 2>&1; then
+          if docker manifest inspect ghcr.io/${{ github.repository }}:builder-$hash > /dev/null 2>&1; then
             echo "exist=true" >> $GITHUB_OUTPUT
           else
             echo "exist=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Push image to GHCR
-        if: steps.exist.outputs.exist != 'true'
         run: |
-          docker tag arch-linux ghcr.io/${{ github.repository }}:${{ steps.exist.outputs.hash }}
-          docker tag arch-linux ghcr.io/${{ github.repository }}:latest
-          docker push ghcr.io/${{ github.repository }}:${{ steps.exist.outputs.hash }}
-          docker push ghcr.io/${{ github.repository }}:latest
+          date_tag=$(date -u +%y%m%d)
+          if [ "${{ steps.exist.outputs.exist }}" != "true" ]; then
+            docker tag arch-linux-builder ghcr.io/${{ github.repository }}:builder-${{ steps.exist.outputs.hash }}
+            docker tag arch-linux-builder ghcr.io/${{ github.repository }}:builder
+            docker push ghcr.io/${{ github.repository }}:builder-${{ steps.exist.outputs.hash }}
+            docker push ghcr.io/${{ github.repository }}:builder
+          fi
+          docker buildx imagetools create \
+            --tag ghcr.io/${{ github.repository }}:builder-$date_tag \
+            ghcr.io/${{ github.repository }}:builder
 
   push-hub:
     name: Publish to Docker Hub
@@ -80,19 +84,24 @@ jobs:
       - name: Check if image exists in Docker Hub
         id: exist
         run: |
-          if docker manifest inspect ${{ secrets.HUB_USERNAME }}/$REPOSITORY:${{ needs.build.outputs.hash }} > /dev/null 2>&1; then
+          if docker manifest inspect ${{ secrets.HUB_USERNAME }}/$REPOSITORY:builder-${{ needs.build.outputs.hash }} > /dev/null 2>&1; then
             echo "exist=true" >> $GITHUB_OUTPUT
           else
             echo "exist=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Publish image to Docker Hub
-        if: steps.exist.outputs.exist != 'true'
         run: |
+          date_tag=$(date -u +%y%m%d)
+          if [ "${{ steps.exist.outputs.exist }}" != "true" ]; then
+            docker buildx imagetools create \
+              --tag ${{ secrets.HUB_USERNAME }}/$REPOSITORY:builder-${{ needs.build.outputs.hash }} \
+              --tag ${{ secrets.HUB_USERNAME }}/$REPOSITORY:builder \
+              ghcr.io/${{ github.repository }}:builder-${{ needs.build.outputs.hash }}
+          fi
           docker buildx imagetools create \
-            --tag ${{ secrets.HUB_USERNAME }}/$REPOSITORY:${{ needs.build.outputs.hash }} \
-            --tag ${{ secrets.HUB_USERNAME }}/$REPOSITORY:latest \
-            ghcr.io/${{ github.repository }}:${{ needs.build.outputs.hash }}
+            --tag ${{ secrets.HUB_USERNAME }}/$REPOSITORY:builder-$date_tag \
+            ghcr.io/${{ github.repository }}:builder
 
   push-quay:
     name: Publish to Quay
@@ -122,18 +131,23 @@ jobs:
         env:
           QUAY_NAMESPACE: ${{ secrets.QUAY_USERNAME }}
         run: |
-          if docker manifest inspect quay.io/${QUAY_NAMESPACE%%+*}/$REPOSITORY:${{ needs.build.outputs.hash }} > /dev/null 2>&1; then
+          if docker manifest inspect quay.io/${QUAY_NAMESPACE%%+*}/$REPOSITORY:builder-${{ needs.build.outputs.hash }} > /dev/null 2>&1; then
             echo "exist=true" >> $GITHUB_OUTPUT
           else
             echo "exist=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Publish image to Quay
-        if: steps.exist.outputs.exist != 'true'
         env:
           QUAY_NAMESPACE: ${{ secrets.QUAY_USERNAME }}
         run: |
+          date_tag=$(date -u +%y%m%d)
+          if [ "${{ steps.exist.outputs.exist }}" != "true" ]; then
+            docker buildx imagetools create \
+              --tag quay.io/${QUAY_NAMESPACE%%+*}/$REPOSITORY:builder-${{ needs.build.outputs.hash }} \
+              --tag quay.io/${QUAY_NAMESPACE%%+*}/$REPOSITORY:builder \
+              ghcr.io/${{ github.repository }}:builder-${{ needs.build.outputs.hash }}
+          fi
           docker buildx imagetools create \
-            --tag quay.io/${QUAY_NAMESPACE%%+*}/$REPOSITORY:${{ needs.build.outputs.hash }} \
-            --tag quay.io/${QUAY_NAMESPACE%%+*}/$REPOSITORY:latest \
-            ghcr.io/${{ github.repository }}:${{ needs.build.outputs.hash }}
+            --tag quay.io/${QUAY_NAMESPACE%%+*}/$REPOSITORY:builder-$date_tag \
+            ghcr.io/${{ github.repository }}:builder

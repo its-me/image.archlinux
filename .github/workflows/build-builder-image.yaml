@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - main
-  schedule:
-    - cron: "45 9 * * *"
   workflow_dispatch:
 
 jobs:
@@ -53,12 +51,9 @@ jobs:
       - name: Push image to GHCR
         if: steps.exist.outputs.exist != 'true'
         run: |
-          date_tag=$(date -u +%y%m%d)
           docker tag arch-linux-builder ghcr.io/${{ github.repository }}:builder-${{ steps.exist.outputs.hash }}
-          docker tag arch-linux-builder ghcr.io/${{ github.repository }}:builder-$date_tag
           docker tag arch-linux-builder ghcr.io/${{ github.repository }}:builder
           docker push ghcr.io/${{ github.repository }}:builder-${{ steps.exist.outputs.hash }}
-          docker push ghcr.io/${{ github.repository }}:builder-$date_tag
           docker push ghcr.io/${{ github.repository }}:builder
 
   push-hub:
@@ -95,10 +90,8 @@ jobs:
       - name: Publish image to Docker Hub
         if: steps.exist.outputs.exist != 'true'
         run: |
-          date_tag=$(date -u +%y%m%d)
           docker buildx imagetools create \
             --tag ${{ secrets.HUB_USERNAME }}/$REPOSITORY:builder-${{ needs.build.outputs.hash }} \
-            --tag ${{ secrets.HUB_USERNAME }}/$REPOSITORY:builder-$date_tag \
             --tag ${{ secrets.HUB_USERNAME }}/$REPOSITORY:builder \
             ghcr.io/${{ github.repository }}:builder-${{ needs.build.outputs.hash }}
 
@@ -141,9 +134,7 @@ jobs:
         env:
           QUAY_NAMESPACE: ${{ secrets.QUAY_USERNAME }}
         run: |
-          date_tag=$(date -u +%y%m%d)
           docker buildx imagetools create \
             --tag quay.io/${QUAY_NAMESPACE%%+*}/$REPOSITORY:builder-${{ needs.build.outputs.hash }} \
-            --tag quay.io/${QUAY_NAMESPACE%%+*}/$REPOSITORY:builder-$date_tag \
             --tag quay.io/${QUAY_NAMESPACE%%+*}/$REPOSITORY:builder \
             ghcr.io/${{ github.repository }}:builder-${{ needs.build.outputs.hash }}

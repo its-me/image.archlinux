@@ -1,10 +1,8 @@
-name: Build base image
+name: Daily base image
 
 on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
+  schedule:
+    - cron: "30 9 * * *"
 
 jobs:
   build:
@@ -48,12 +46,17 @@ jobs:
           fi
 
       - name: Push image to GHCR
-        if: steps.exist.outputs.exist != 'true'
         run: |
-          docker tag arch-linux ghcr.io/${{ github.repository }}:${{ steps.exist.outputs.hash }}
-          docker tag arch-linux ghcr.io/${{ github.repository }}:latest
-          docker push ghcr.io/${{ github.repository }}:${{ steps.exist.outputs.hash }}
-          docker push ghcr.io/${{ github.repository }}:latest
+          date_tag=$(date -u +%y%m%d)
+          if [ "${{ steps.exist.outputs.exist }}" != "true" ]; then
+            docker tag arch-linux ghcr.io/${{ github.repository }}:${{ steps.exist.outputs.hash }}
+            docker tag arch-linux ghcr.io/${{ github.repository }}:latest
+            docker push ghcr.io/${{ github.repository }}:${{ steps.exist.outputs.hash }}
+            docker push ghcr.io/${{ github.repository }}:latest
+          fi
+          docker buildx imagetools create \
+            --tag ghcr.io/${{ github.repository }}:$date_tag \
+            ghcr.io/${{ github.repository }}:latest
 
   push-hub:
     name: Publish to Docker Hub
@@ -87,12 +90,17 @@ jobs:
           fi
 
       - name: Publish image to Docker Hub
-        if: steps.exist.outputs.exist != 'true'
         run: |
+          date_tag=$(date -u +%y%m%d)
+          if [ "${{ steps.exist.outputs.exist }}" != "true" ]; then
+            docker buildx imagetools create \
+              --tag ${{ secrets.HUB_USERNAME }}/$REPOSITORY:${{ needs.build.outputs.hash }} \
+              --tag ${{ secrets.HUB_USERNAME }}/$REPOSITORY:latest \
+              ghcr.io/${{ github.repository }}:${{ needs.build.outputs.hash }}
+          fi
           docker buildx imagetools create \
-            --tag ${{ secrets.HUB_USERNAME }}/$REPOSITORY:${{ needs.build.outputs.hash }} \
-            --tag ${{ secrets.HUB_USERNAME }}/$REPOSITORY:latest \
-            ghcr.io/${{ github.repository }}:${{ needs.build.outputs.hash }}
+            --tag ${{ secrets.HUB_USERNAME }}/$REPOSITORY:$date_tag \
+            ghcr.io/${{ github.repository }}:latest
 
   push-quay:
     name: Publish to Quay
@@ -129,11 +137,16 @@ jobs:
           fi
 
       - name: Publish image to Quay
-        if: steps.exist.outputs.exist != 'true'
         env:
           QUAY_NAMESPACE: ${{ secrets.QUAY_USERNAME }}
         run: |
+          date_tag=$(date -u +%y%m%d)
+          if [ "${{ steps.exist.outputs.exist }}" != "true" ]; then
+            docker buildx imagetools create \
+              --tag quay.io/${QUAY_NAMESPACE%%+*}/$REPOSITORY:${{ needs.build.outputs.hash }} \
+              --tag quay.io/${QUAY_NAMESPACE%%+*}/$REPOSITORY:latest \
+              ghcr.io/${{ github.repository }}:${{ needs.build.outputs.hash }}
+          fi
           docker buildx imagetools create \
-            --tag quay.io/${QUAY_NAMESPACE%%+*}/$REPOSITORY:${{ needs.build.outputs.hash }} \
-            --tag quay.io/${QUAY_NAMESPACE%%+*}/$REPOSITORY:latest \
-            ghcr.io/${{ github.repository }}:${{ needs.build.outputs.hash }}
+            --tag quay.io/${QUAY_NAMESPACE%%+*}/$REPOSITORY:$date_tag \
+            ghcr.io/${{ github.repository }}:latest
