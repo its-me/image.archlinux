@@ -50,13 +50,12 @@ jobs:
           date_tag=$(date -u +%y%m%d)
           if [ "${{ steps.exist.outputs.exist }}" != "true" ]; then
             docker tag arch-linux ghcr.io/${{ github.repository }}:${{ steps.exist.outputs.hash }}
-            docker tag arch-linux ghcr.io/${{ github.repository }}:latest
             docker push ghcr.io/${{ github.repository }}:${{ steps.exist.outputs.hash }}
-            docker push ghcr.io/${{ github.repository }}:latest
           fi
           docker buildx imagetools create \
             --tag ghcr.io/${{ github.repository }}:$date_tag \
-            ghcr.io/${{ github.repository }}:latest
+            --tag ghcr.io/${{ github.repository }}:latest \
+            ghcr.io/${{ github.repository }}:${{ steps.exist.outputs.hash }}
 
   push-hub:
     name: Publish to Docker Hub
@@ -95,12 +94,12 @@ jobs:
           if [ "${{ steps.exist.outputs.exist }}" != "true" ]; then
             docker buildx imagetools create \
               --tag ${{ secrets.HUB_USERNAME }}/$REPOSITORY:${{ needs.build.outputs.hash }} \
-              --tag ${{ secrets.HUB_USERNAME }}/$REPOSITORY:latest \
               ghcr.io/${{ github.repository }}:${{ needs.build.outputs.hash }}
           fi
           docker buildx imagetools create \
             --tag ${{ secrets.HUB_USERNAME }}/$REPOSITORY:$date_tag \
-            ghcr.io/${{ github.repository }}:latest
+            --tag ${{ secrets.HUB_USERNAME }}/$REPOSITORY:latest \
+            ghcr.io/${{ github.repository }}:${{ needs.build.outputs.hash }}
 
   push-quay:
     name: Publish to Quay
@@ -144,9 +143,9 @@ jobs:
           if [ "${{ steps.exist.outputs.exist }}" != "true" ]; then
             docker buildx imagetools create \
               --tag quay.io/${QUAY_NAMESPACE%%+*}/$REPOSITORY:${{ needs.build.outputs.hash }} \
-              --tag quay.io/${QUAY_NAMESPACE%%+*}/$REPOSITORY:latest \
               ghcr.io/${{ github.repository }}:${{ needs.build.outputs.hash }}
           fi
           docker buildx imagetools create \
             --tag quay.io/${QUAY_NAMESPACE%%+*}/$REPOSITORY:$date_tag \
-            ghcr.io/${{ github.repository }}:latest
+            --tag quay.io/${QUAY_NAMESPACE%%+*}/$REPOSITORY:latest \
+            ghcr.io/${{ github.repository }}:${{ needs.build.outputs.hash }}
