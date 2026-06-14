@@ -9,7 +9,7 @@ Arch Linux container images with [paru](https://github.com/Morganamilo/paru) AUR
 Minimal Arch Linux image with paru. Intended as a foundation for other images.
 
 ```
-docker pull 1tsme/archlinux:latest
+docker pull ghcr.io/its-me/arch-linux:latest
 ```
 
 ### Builder (`builder`)
@@ -17,7 +17,7 @@ docker pull 1tsme/archlinux:latest
 Extends the base image with AUR build tools and a passwordless `builder` user for running `makepkg` and `paru`.
 
 ```
-docker pull 1tsme/archlinux:builder
+docker pull ghcr.io/its-me/arch-linux:builder
 ```
 
 Includes: `base-devel`, `github-cli`, `jq`, `namcap`, `openssh`, `rsync`
