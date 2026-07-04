@@ -41,7 +41,7 @@ jobs:
         run: |
           hash=$(docker run --rm arch-linux pacman -Q | sha256sum | cut -d' ' -f1)
           echo "hash=$hash" >> $GITHUB_OUTPUT
-          if docker manifest inspect ghcr.io/its-me/arch-linux:$hash > /dev/null 2>&1; then
+          if docker manifest inspect ghcr.io/its-me/archlinux:$hash > /dev/null 2>&1; then
             echo "exist=true" >> $GITHUB_OUTPUT
           else
             echo "exist=false" >> $GITHUB_OUTPUT
@@ -50,10 +50,10 @@ jobs:
       - name: Push image to GHCR
         if: steps.exist.outputs.exist != 'true'
         run: |
-          docker tag arch-linux ghcr.io/its-me/arch-linux:${{ steps.exist.outputs.hash }}
-          docker tag arch-linux ghcr.io/its-me/arch-linux:latest
-          docker push ghcr.io/its-me/arch-linux:${{ steps.exist.outputs.hash }}
-          docker push ghcr.io/its-me/arch-linux:latest
+          docker tag arch-linux ghcr.io/its-me/archlinux:${{ steps.exist.outputs.hash }}
+          docker tag arch-linux ghcr.io/its-me/archlinux:latest
+          docker push ghcr.io/its-me/archlinux:${{ steps.exist.outputs.hash }}
+          docker push ghcr.io/its-me/archlinux:latest
 
   push-base-hub:
     name: "Docker Hub: Publish base"
@@ -92,7 +92,7 @@ jobs:
           docker buildx imagetools create \
             --tag ${{ secrets.HUB_USERNAME }}/$REPOSITORY:${{ needs.build-base.outputs.hash }} \
             --tag ${{ secrets.HUB_USERNAME }}/$REPOSITORY:latest \
-            ghcr.io/its-me/arch-linux:${{ needs.build-base.outputs.hash }}
+            ghcr.io/its-me/archlinux:${{ needs.build-base.outputs.hash }}
 
   push-base-quay:
     name: "Quay: Publish base"
@@ -136,7 +136,7 @@ jobs:
           docker buildx imagetools create \
             --tag quay.io/${QUAY_NAMESPACE%%+*}/$REPOSITORY:${{ needs.build-base.outputs.hash }} \
             --tag quay.io/${QUAY_NAMESPACE%%+*}/$REPOSITORY:latest \
-            ghcr.io/its-me/arch-linux:${{ needs.build-base.outputs.hash }}
+            ghcr.io/its-me/archlinux:${{ needs.build-base.outputs.hash }}
 
   build-builder:
     name: "GHCR: Build and push builder"
@@ -174,7 +174,7 @@ jobs:
         run: |
           hash=$(docker run --rm arch-linux-builder pacman -Q | sha256sum | cut -d' ' -f1)
           echo "hash=$hash" >> $GITHUB_OUTPUT
-          if docker manifest inspect ghcr.io/its-me/arch-linux:builder-$hash > /dev/null 2>&1; then
+          if docker manifest inspect ghcr.io/its-me/archlinux:builder-$hash > /dev/null 2>&1; then
             echo "exist=true" >> $GITHUB_OUTPUT
           else
             echo "exist=false" >> $GITHUB_OUTPUT
@@ -183,10 +183,10 @@ jobs:
       - name: Push image to GHCR
         if: steps.exist.outputs.exist != 'true'
         run: |
-          docker tag arch-linux-builder ghcr.io/its-me/arch-linux:builder-${{ steps.exist.outputs.hash }}
-          docker tag arch-linux-builder ghcr.io/its-me/arch-linux:builder
-          docker push ghcr.io/its-me/arch-linux:builder-${{ steps.exist.outputs.hash }}
-          docker push ghcr.io/its-me/arch-linux:builder
+          docker tag arch-linux-builder ghcr.io/its-me/archlinux:builder-${{ steps.exist.outputs.hash }}
+          docker tag arch-linux-builder ghcr.io/its-me/archlinux:builder
+          docker push ghcr.io/its-me/archlinux:builder-${{ steps.exist.outputs.hash }}
+          docker push ghcr.io/its-me/archlinux:builder
 
   push-builder-hub:
     name: "Docker Hub: Publish builder"
@@ -225,7 +225,7 @@ jobs:
           docker buildx imagetools create \
             --tag ${{ secrets.HUB_USERNAME }}/$REPOSITORY:builder-${{ needs.build-builder.outputs.hash }} \
             --tag ${{ secrets.HUB_USERNAME }}/$REPOSITORY:builder \
-            ghcr.io/its-me/arch-linux:builder-${{ needs.build-builder.outputs.hash }}
+            ghcr.io/its-me/archlinux:builder-${{ needs.build-builder.outputs.hash }}
 
   push-builder-quay:
     name: "Quay: Publish builder"
@@ -269,4 +269,4 @@ jobs:
           docker buildx imagetools create \
             --tag quay.io/${QUAY_NAMESPACE%%+*}/$REPOSITORY:builder-${{ needs.build-builder.outputs.hash }} \
             --tag quay.io/${QUAY_NAMESPACE%%+*}/$REPOSITORY:builder \
-            ghcr.io/its-me/arch-linux:builder-${{ needs.build-builder.outputs.hash }}
+            ghcr.io/its-me/archlinux:builder-${{ needs.build-builder.outputs.hash }}

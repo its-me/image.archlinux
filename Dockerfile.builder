@@ -1,4 +1,4 @@
-FROM ghcr.io/its-me/arch-linux:latest
+FROM ghcr.io/its-me/archlinux:latest
 
 RUN paru -Syu --noconfirm && \
     paru -S --noconfirm base-devel github-cli jq namcap openssh rsync && \
