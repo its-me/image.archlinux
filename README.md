@@ -38,3 +38,7 @@ Includes: `base-devel`, `github-cli`, `jq`, `namcap`, `openssh`, `rsync`
 | Docker Hub | `1tsme/archlinux` |
 | Quay | `quay.io/1tsme/archlinux` |
 | GHCR | `ghcr.io/its-me/archlinux` |
+
+## License
+
+[MIT](LICENSE)
