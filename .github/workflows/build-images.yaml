@@ -189,3 +189,183 @@ jobs:
           destination-username: ${{ secrets.QUAY_USERNAME }}
           destination-password: ${{ secrets.QUAY_TOKEN }}
           tags: ${{ needs.build-builder.outputs.tags }}
+
+  build-python:
+    name: "GHCR: Build and push python"
+    needs: build-base
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      tags: ${{ steps.tags.outputs.list }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile.python
+          load: true
+          tags: arch-linux-python
+
+      - name: Resolve version
+        id: version
+        run: |
+          hash=$(docker run --rm arch-linux-python pacman -Q | sha256sum | cut -d' ' -f1)
+          echo "value=$hash" >> $GITHUB_OUTPUT
+
+      - name: Resolve tags
+        id: tags
+        run: echo "list=python" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile.python
+          push: true
+          build-args: VERSION=${{ steps.version.outputs.value }}
+          tags: ghcr.io/its-me/${{ env.REPOSITORY }}:python
+
+  push-python-hub:
+    name: "Docker Hub: Publish python"
+    needs: build-python
+    runs-on: ubuntu-slim
+    permissions:
+      packages: read
+    steps:
+      - uses: its-me/action.image.mirror@v1
+        with:
+          source: ghcr.io/its-me/${{ env.REPOSITORY }}
+          source-username: ${{ github.actor }}
+          source-password: ${{ secrets.GITHUB_TOKEN }}
+          destination: ${{ secrets.HUB_USERNAME }}/${{ env.REPOSITORY }}
+          destination-username: ${{ secrets.HUB_USERNAME }}
+          destination-password: ${{ secrets.HUB_TOKEN }}
+          tags: ${{ needs.build-python.outputs.tags }}
+
+  push-python-quay:
+    name: "Quay: Publish python"
+    needs: build-python
+    runs-on: ubuntu-slim
+    permissions:
+      packages: read
+    steps:
+      - name: Resolve Quay namespace
+        id: namespace
+        env:
+          QUAY_NAMESPACE: ${{ secrets.QUAY_USERNAME }}
+        run: echo "value=${QUAY_NAMESPACE%%+*}" >> "$GITHUB_OUTPUT"
+
+      - uses: its-me/action.image.mirror@v1
+        with:
+          source: ghcr.io/its-me/${{ env.REPOSITORY }}
+          source-username: ${{ github.actor }}
+          source-password: ${{ secrets.GITHUB_TOKEN }}
+          destination: quay.io/${{ steps.namespace.outputs.value }}/${{ env.REPOSITORY }}
+          destination-username: ${{ secrets.QUAY_USERNAME }}
+          destination-password: ${{ secrets.QUAY_TOKEN }}
+          tags: ${{ needs.build-python.outputs.tags }}
+
+  build-uv:
+    name: "GHCR: Build and push uv"
+    needs: build-python
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      tags: ${{ steps.tags.outputs.list }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile.uv
+          load: true
+          tags: arch-linux-uv
+
+      - name: Resolve version
+        id: version
+        run: |
+          hash=$(docker run --rm arch-linux-uv pacman -Q | sha256sum | cut -d' ' -f1)
+          echo "value=$hash" >> $GITHUB_OUTPUT
+
+      - name: Resolve tags
+        id: tags
+        run: echo "list=uv" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile.uv
+          push: true
+          build-args: VERSION=${{ steps.version.outputs.value }}
+          tags: ghcr.io/its-me/${{ env.REPOSITORY }}:uv
+
+  push-uv-hub:
+    name: "Docker Hub: Publish uv"
+    needs: build-uv
+    runs-on: ubuntu-slim
+    permissions:
+      packages: read
+    steps:
+      - uses: its-me/action.image.mirror@v1
+        with:
+          source: ghcr.io/its-me/${{ env.REPOSITORY }}
+          source-username: ${{ github.actor }}
+          source-password: ${{ secrets.GITHUB_TOKEN }}
+          destination: ${{ secrets.HUB_USERNAME }}/${{ env.REPOSITORY }}
+          destination-username: ${{ secrets.HUB_USERNAME }}
+          destination-password: ${{ secrets.HUB_TOKEN }}
+          tags: ${{ needs.build-uv.outputs.tags }}
+
+  push-uv-quay:
+    name: "Quay: Publish uv"
+    needs: build-uv
+    runs-on: ubuntu-slim
+    permissions:
+      packages: read
+    steps:
+      - name: Resolve Quay namespace
+        id: namespace
+        env:
+          QUAY_NAMESPACE: ${{ secrets.QUAY_USERNAME }}
+        run: echo "value=${QUAY_NAMESPACE%%+*}" >> "$GITHUB_OUTPUT"
+
+      - uses: its-me/action.image.mirror@v1
+        with:
+          source: ghcr.io/its-me/${{ env.REPOSITORY }}
+          source-username: ${{ github.actor }}
+          source-password: ${{ secrets.GITHUB_TOKEN }}
+          destination: quay.io/${{ steps.namespace.outputs.value }}/${{ env.REPOSITORY }}
+          destination-username: ${{ secrets.QUAY_USERNAME }}
+          destination-password: ${{ secrets.QUAY_TOKEN }}
+          tags: ${{ needs.build-uv.outputs.tags }}

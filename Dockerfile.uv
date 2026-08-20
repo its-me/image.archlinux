@@ -1,0 +1,16 @@
+FROM ghcr.io/its-me/archlinux:python
+
+RUN pacman -Syu --noconfirm && \
+    pacman -S --noconfirm uv && \
+    pacman -Scc --noconfirm
+
+# Placed last so it doesn't invalidate the cache for the RUN layers above when
+# VERSION changes between the hash-resolving build and the labeled push.
+ARG VERSION
+LABEL org.opencontainers.image.version=$VERSION
+LABEL org.opencontainers.image.source=https://github.com/its-me/image.archlinux
+LABEL org.opencontainers.image.title="archlinux-uv"
+LABEL org.opencontainers.image.description="Extends the archlinux-python image with uv, installed via pacman"
+LABEL org.opencontainers.image.licenses="MIT"
+LABEL org.opencontainers.image.authors="Sergey Kanafyev <sergeykanafyev@gmail.com>"
+LABEL org.opencontainers.image.base.name="ghcr.io/its-me/archlinux:python"

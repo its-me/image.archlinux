@@ -26,6 +26,22 @@ docker pull 1tsme/archlinux:builder
 
 Includes: `base-devel`, `github-cli`, `jq`, `namcap`, `openssh`, `rsync`
 
+### Python (`python`)
+
+Extends the base image with `python` and `python-pip`.
+
+```
+docker pull 1tsme/archlinux:python
+```
+
+### uv (`uv`)
+
+Extends the Python image with [uv](https://github.com/astral-sh/uv), installed via pacman from the `extra` repo.
+
+```
+docker pull 1tsme/archlinux:uv
+```
+
 ## Tags
 
 | Tag | Description |
@@ -34,5 +50,9 @@ Includes: `base-devel`, `github-cli`, `jq`, `namcap`, `openssh`, `rsync`
 | `YYMMDD` | Date-stamped base image |
 | `builder` | Latest builder image |
 | `builder-YYMMDD` | Date-stamped builder image |
+| `python` | Latest Python image |
+| `python-YYMMDD` | Date-stamped Python image |
+| `uv` | Latest uv image |
+| `uv-YYMMDD` | Date-stamped uv image |
 
 Source: https://github.com/its-me/image.archlinux
