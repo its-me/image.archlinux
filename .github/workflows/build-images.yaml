@@ -6,6 +6,9 @@ on:
       - main
   workflow_dispatch:
 
+env:
+  REPOSITORY: archlinux
+
 jobs:
   build-base:
     name: "GHCR: Build and push base"
@@ -14,7 +17,7 @@ jobs:
       contents: read
       packages: write
     outputs:
-      hash: ${{ steps.exist.outputs.hash }}
+      tags: ${{ steps.tags.outputs.list }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -36,107 +39,66 @@ jobs:
           load: true
           tags: arch-linux
 
-      - name: Check if image exists in GHCR
-        id: exist
+      # The image's own installed-package list is the only meaningful
+      # "version" for a rolling-release distro, so it has to be resolved from
+      # a first build before it can be baked in as a label on the pushed one.
+      - name: Resolve version
+        id: version
         run: |
           hash=$(docker run --rm arch-linux pacman -Q | sha256sum | cut -d' ' -f1)
-          echo "hash=$hash" >> $GITHUB_OUTPUT
-          if docker manifest inspect ghcr.io/its-me/archlinux:$hash > /dev/null 2>&1; then
-            echo "exist=true" >> $GITHUB_OUTPUT
-          else
-            echo "exist=false" >> $GITHUB_OUTPUT
-          fi
+          echo "value=$hash" >> $GITHUB_OUTPUT
 
-      - name: Push image to GHCR
-        if: steps.exist.outputs.exist != 'true'
-        run: |
-          docker tag arch-linux ghcr.io/its-me/archlinux:${{ steps.exist.outputs.hash }}
-          docker tag arch-linux ghcr.io/its-me/archlinux:latest
-          docker push ghcr.io/its-me/archlinux:${{ steps.exist.outputs.hash }}
-          docker push ghcr.io/its-me/archlinux:latest
+      - name: Resolve tags
+        id: tags
+        run: echo "list=latest" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          build-args: VERSION=${{ steps.version.outputs.value }}
+          tags: ghcr.io/its-me/${{ env.REPOSITORY }}:latest
 
   push-base-hub:
     name: "Docker Hub: Publish base"
     needs: build-base
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     permissions:
       packages: read
-    env:
-      REPOSITORY: archlinux
     steps:
-      - name: Log in to GHCR
-        uses: docker/login-action@v4
+      - uses: its-me/action.image.mirror@v1
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v4
-        with:
-          username: ${{ secrets.HUB_USERNAME }}
-          password: ${{ secrets.HUB_TOKEN }}
-
-      - name: Check if image exists in Docker Hub
-        id: exist
-        run: |
-          if docker manifest inspect ${{ secrets.HUB_USERNAME }}/$REPOSITORY:${{ needs.build-base.outputs.hash }} > /dev/null 2>&1; then
-            echo "exist=true" >> $GITHUB_OUTPUT
-          else
-            echo "exist=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Publish image to Docker Hub
-        if: steps.exist.outputs.exist != 'true'
-        run: |
-          docker buildx imagetools create \
-            --tag ${{ secrets.HUB_USERNAME }}/$REPOSITORY:${{ needs.build-base.outputs.hash }} \
-            --tag ${{ secrets.HUB_USERNAME }}/$REPOSITORY:latest \
-            ghcr.io/its-me/archlinux:${{ needs.build-base.outputs.hash }}
+          source: ghcr.io/its-me/${{ env.REPOSITORY }}
+          source-username: ${{ github.actor }}
+          source-password: ${{ secrets.GITHUB_TOKEN }}
+          destination: ${{ secrets.HUB_USERNAME }}/${{ env.REPOSITORY }}
+          destination-username: ${{ secrets.HUB_USERNAME }}
+          destination-password: ${{ secrets.HUB_TOKEN }}
+          tags: ${{ needs.build-base.outputs.tags }}
 
   push-base-quay:
     name: "Quay: Publish base"
     needs: build-base
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     permissions:
       packages: read
-    env:
-      REPOSITORY: archlinux
     steps:
-      - name: Log in to GHCR
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Log in to Quay
-        uses: docker/login-action@v4
-        with:
-          registry: quay.io
-          username: ${{ secrets.QUAY_USERNAME }}
-          password: ${{ secrets.QUAY_TOKEN }}
-
-      - name: Check if image exists in Quay
-        id: exist
+      - name: Resolve Quay namespace
+        id: namespace
         env:
           QUAY_NAMESPACE: ${{ secrets.QUAY_USERNAME }}
-        run: |
-          if docker manifest inspect quay.io/${QUAY_NAMESPACE%%+*}/$REPOSITORY:${{ needs.build-base.outputs.hash }} > /dev/null 2>&1; then
-            echo "exist=true" >> $GITHUB_OUTPUT
-          else
-            echo "exist=false" >> $GITHUB_OUTPUT
-          fi
+        run: echo "value=${QUAY_NAMESPACE%%+*}" >> "$GITHUB_OUTPUT"
 
-      - name: Publish image to Quay
-        if: steps.exist.outputs.exist != 'true'
-        env:
-          QUAY_NAMESPACE: ${{ secrets.QUAY_USERNAME }}
-        run: |
-          docker buildx imagetools create \
-            --tag quay.io/${QUAY_NAMESPACE%%+*}/$REPOSITORY:${{ needs.build-base.outputs.hash }} \
-            --tag quay.io/${QUAY_NAMESPACE%%+*}/$REPOSITORY:latest \
-            ghcr.io/its-me/archlinux:${{ needs.build-base.outputs.hash }}
+      - uses: its-me/action.image.mirror@v1
+        with:
+          source: ghcr.io/its-me/${{ env.REPOSITORY }}
+          source-username: ${{ github.actor }}
+          source-password: ${{ secrets.GITHUB_TOKEN }}
+          destination: quay.io/${{ steps.namespace.outputs.value }}/${{ env.REPOSITORY }}
+          destination-username: ${{ secrets.QUAY_USERNAME }}
+          destination-password: ${{ secrets.QUAY_TOKEN }}
+          tags: ${{ needs.build-base.outputs.tags }}
 
   build-builder:
     name: "GHCR: Build and push builder"
@@ -146,7 +108,7 @@ jobs:
       contents: read
       packages: write
     outputs:
-      hash: ${{ steps.exist.outputs.hash }}
+      tags: ${{ steps.tags.outputs.list }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -169,104 +131,61 @@ jobs:
           load: true
           tags: arch-linux-builder
 
-      - name: Check if image exists in GHCR
-        id: exist
+      - name: Resolve version
+        id: version
         run: |
           hash=$(docker run --rm arch-linux-builder pacman -Q | sha256sum | cut -d' ' -f1)
-          echo "hash=$hash" >> $GITHUB_OUTPUT
-          if docker manifest inspect ghcr.io/its-me/archlinux:builder-$hash > /dev/null 2>&1; then
-            echo "exist=true" >> $GITHUB_OUTPUT
-          else
-            echo "exist=false" >> $GITHUB_OUTPUT
-          fi
+          echo "value=$hash" >> $GITHUB_OUTPUT
 
-      - name: Push image to GHCR
-        if: steps.exist.outputs.exist != 'true'
-        run: |
-          docker tag arch-linux-builder ghcr.io/its-me/archlinux:builder-${{ steps.exist.outputs.hash }}
-          docker tag arch-linux-builder ghcr.io/its-me/archlinux:builder
-          docker push ghcr.io/its-me/archlinux:builder-${{ steps.exist.outputs.hash }}
-          docker push ghcr.io/its-me/archlinux:builder
+      - name: Resolve tags
+        id: tags
+        run: echo "list=builder" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile.builder
+          push: true
+          build-args: VERSION=${{ steps.version.outputs.value }}
+          tags: ghcr.io/its-me/${{ env.REPOSITORY }}:builder
 
   push-builder-hub:
     name: "Docker Hub: Publish builder"
     needs: build-builder
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     permissions:
       packages: read
-    env:
-      REPOSITORY: archlinux
     steps:
-      - name: Log in to GHCR
-        uses: docker/login-action@v4
+      - uses: its-me/action.image.mirror@v1
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v4
-        with:
-          username: ${{ secrets.HUB_USERNAME }}
-          password: ${{ secrets.HUB_TOKEN }}
-
-      - name: Check if image exists in Docker Hub
-        id: exist
-        run: |
-          if docker manifest inspect ${{ secrets.HUB_USERNAME }}/$REPOSITORY:builder-${{ needs.build-builder.outputs.hash }} > /dev/null 2>&1; then
-            echo "exist=true" >> $GITHUB_OUTPUT
-          else
-            echo "exist=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Publish image to Docker Hub
-        if: steps.exist.outputs.exist != 'true'
-        run: |
-          docker buildx imagetools create \
-            --tag ${{ secrets.HUB_USERNAME }}/$REPOSITORY:builder-${{ needs.build-builder.outputs.hash }} \
-            --tag ${{ secrets.HUB_USERNAME }}/$REPOSITORY:builder \
-            ghcr.io/its-me/archlinux:builder-${{ needs.build-builder.outputs.hash }}
+          source: ghcr.io/its-me/${{ env.REPOSITORY }}
+          source-username: ${{ github.actor }}
+          source-password: ${{ secrets.GITHUB_TOKEN }}
+          destination: ${{ secrets.HUB_USERNAME }}/${{ env.REPOSITORY }}
+          destination-username: ${{ secrets.HUB_USERNAME }}
+          destination-password: ${{ secrets.HUB_TOKEN }}
+          tags: ${{ needs.build-builder.outputs.tags }}
 
   push-builder-quay:
     name: "Quay: Publish builder"
     needs: build-builder
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     permissions:
       packages: read
-    env:
-      REPOSITORY: archlinux
     steps:
-      - name: Log in to GHCR
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Log in to Quay
-        uses: docker/login-action@v4
-        with:
-          registry: quay.io
-          username: ${{ secrets.QUAY_USERNAME }}
-          password: ${{ secrets.QUAY_TOKEN }}
-
-      - name: Check if image exists in Quay
-        id: exist
+      - name: Resolve Quay namespace
+        id: namespace
         env:
           QUAY_NAMESPACE: ${{ secrets.QUAY_USERNAME }}
-        run: |
-          if docker manifest inspect quay.io/${QUAY_NAMESPACE%%+*}/$REPOSITORY:builder-${{ needs.build-builder.outputs.hash }} > /dev/null 2>&1; then
-            echo "exist=true" >> $GITHUB_OUTPUT
-          else
-            echo "exist=false" >> $GITHUB_OUTPUT
-          fi
+        run: echo "value=${QUAY_NAMESPACE%%+*}" >> "$GITHUB_OUTPUT"
 
-      - name: Publish image to Quay
-        if: steps.exist.outputs.exist != 'true'
-        env:
-          QUAY_NAMESPACE: ${{ secrets.QUAY_USERNAME }}
-        run: |
-          docker buildx imagetools create \
-            --tag quay.io/${QUAY_NAMESPACE%%+*}/$REPOSITORY:builder-${{ needs.build-builder.outputs.hash }} \
-            --tag quay.io/${QUAY_NAMESPACE%%+*}/$REPOSITORY:builder \
-            ghcr.io/its-me/archlinux:builder-${{ needs.build-builder.outputs.hash }}
+      - uses: its-me/action.image.mirror@v1
+        with:
+          source: ghcr.io/its-me/${{ env.REPOSITORY }}
+          source-username: ${{ github.actor }}
+          source-password: ${{ secrets.GITHUB_TOKEN }}
+          destination: quay.io/${{ steps.namespace.outputs.value }}/${{ env.REPOSITORY }}
+          destination-username: ${{ secrets.QUAY_USERNAME }}
+          destination-password: ${{ secrets.QUAY_TOKEN }}
+          tags: ${{ needs.build-builder.outputs.tags }}

@@ -2,6 +2,8 @@
 
 Arch Linux container images with [paru](https://github.com/Morganamilo/paru) AUR helper pre-installed, built and published daily.
 
+Each image carries an `org.opencontainers.image.version` label set to a hash of its installed package list (visible via `docker inspect`) — Arch is rolling-release, so there's no upstream version number to tie a tag to.
+
 ## Images
 
 ### Base (`latest`)
