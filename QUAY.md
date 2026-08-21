@@ -34,7 +34,7 @@ docker pull quay.io/itsme/archlinux:python
 
 ### uv (`uv`)
 
-Extends the Python image with [uv](https://github.com/astral-sh/uv), installed via pacman from the `extra` repo.
+Extends the Python image with [uv](https://github.com/astral-sh/uv), installed via paru from the `extra` repo.
 
 ```
 docker pull quay.io/itsme/archlinux:uv

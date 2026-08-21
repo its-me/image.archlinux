@@ -34,7 +34,7 @@ docker pull ghcr.io/its-me/archlinux:python
 
 ### uv (`uv`)
 
-Extends the Python image with [uv](https://github.com/astral-sh/uv), installed via pacman from the `extra` repo.
+Extends the Python image with [uv](https://github.com/astral-sh/uv), installed via paru from the `extra` repo.
 
 ```
 docker pull ghcr.io/its-me/archlinux:uv

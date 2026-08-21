@@ -1,8 +1,8 @@
 FROM ghcr.io/its-me/archlinux:latest
 
-RUN pacman -Syu --noconfirm && \
-    pacman -S --noconfirm python python-pip && \
-    pacman -Scc --noconfirm
+RUN paru -Syu --noconfirm && \
+    paru -S --noconfirm python python-pip && \
+    yes | paru -Scc
 
 # Placed last so it doesn't invalidate the cache for the RUN layers above when
 # VERSION changes between the hash-resolving build and the labeled push.

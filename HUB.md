@@ -36,7 +36,7 @@ docker pull 1tsme/archlinux:python
 
 ### uv (`uv`)
 
-Extends the Python image with [uv](https://github.com/astral-sh/uv), installed via pacman from the `extra` repo.
+Extends the Python image with [uv](https://github.com/astral-sh/uv), installed via paru from the `extra` repo.
 
 ```
 docker pull 1tsme/archlinux:uv
