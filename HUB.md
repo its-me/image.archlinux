@@ -24,7 +24,7 @@ Extends the base image with AUR build tools and a passwordless `builder` user fo
 docker pull 1tsme/archlinux:builder
 ```
 
-Includes: `base-devel`, `github-cli`, `jq`, `namcap`, `openssh`, `rsync`
+Includes: `base-devel`, `github-cli`, `jq`, `namcap`, `openssh`, `pacman-contrib`, `rsync`
 
 ### Python (`python`)
 
